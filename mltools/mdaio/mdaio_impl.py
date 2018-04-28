@@ -92,6 +92,61 @@ class DiskReadMda:
             f.close()
             return None
 
+class DiskWriteMda:
+    def __init__(self,path,dims,dt='float64'):
+        self._path=path
+        self._header=MdaHeader(dt,dims)
+        _write_header(path, self._header)
+    def N1(self):
+        return self._header.dims[0]
+    def N2(self):
+        return self._header.dims[1]
+    def N3(self):
+        return self._header.dims[2]
+    def writeChunk(self,X,i1=-1,i2=-1,i3=-1):
+        #print("Writing chunk {} {} {} {}".format(i1,i2,i3,X[0]))
+        if (len(X.shape)>=2):
+            N1=X.shape[0]
+        else:
+            N1=1
+        if (len(X.shape)>=2):
+            N2=X.shape[1]
+        else:
+            N2=1
+        if (len(X.shape)>=3):
+            N3=X.shape[2]
+        else:
+            N3=1
+        if (i2<0):
+            return self._write_chunk_1d(X,i1)
+        elif (i3<0):
+            if N1 != self._header.dims[0]:
+                print ("Unable to support DiskWriteMda N1 {} != {}".format(N1,self._header.dims[0]))
+                return None
+            return self._write_chunk_1d(X.ravel(order='F'),i1+N1*i2)
+        else:
+            if N1 != self._header.dims[0]:
+                print ("Unable to support DiskWriteMda N1 {} != {}".format(N1,self._header.dims[0]))
+                return None
+            if N2 != self._header.dims[1]:
+                print ("Unable to support DiskWriteMda N2 {} != {}".format(N2,self._header.dims[1]))
+                return None
+            return self._write_chunk_1d(X.ravel(order='F'),i1+N1*i2+N1*N2*i3)
+    
+    def _write_chunk_1d(self,X,i):
+        N=X.size
+        f=open(self._path,"ab")
+        try:
+            #print('Writing data to file at position {} values: {}'.format(self._header.header_size+self._header.num_bytes_per_entry*i,X))
+            f.seek(self._header.header_size+self._header.num_bytes_per_entry*i)
+            X.astype(self._header.dt).tofile(f)
+            f.close()
+            return True
+        except Exception as e: # catch *all* exceptions
+            print (e)
+            f.close()
+        return False
+
 def _dt_from_dt_code(dt_code):
     if dt_code == -2:
         dt='uint8'
